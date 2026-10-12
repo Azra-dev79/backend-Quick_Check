@@ -1,37 +1,31 @@
 <?php
 
-// Pastikan direktori storage dan cache aman di /tmp Vercel
+// Paksa direktori storage dan bootstrap cache langsung ke /tmp SEBELUM Laravel dimuat
+putenv('APP_STORAGE=/tmp');
 $_ENV['APP_STORAGE'] = '/tmp';
-$_ENV['VIEW_COMPILED_PATH'] = '/tmp/framework/views';
 
-$paths = [
-    '/tmp/storage/framework/cache',
-    '/tmp/storage/framework/sessions',
-    '/tmp/storage/framework/views',
-    '/tmp/storage/logs',
-];
+$tmpStorage = '/tmp/storage';
+$tmpBootstrap = '/tmp/bootstrap/cache';
 
-foreach ($paths as $path) {
-    if (!is_dir($path)) {
-        mkdir($path, 0777, true);
+// Buat foldernya jika belum ada di /tmp
+foreach ([$tmpStorage, $tmpStorage.'/framework/cache', $tmpStorage.'/framework/sessions', $tmpStorage.'/framework/views', $tmpStorage.'/logs', $tmpBootstrap] as $dir) {
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
     }
 }
 
-try {
-    require __DIR__ . '/../vendor/autoload.php';
+// Override path storage bawaan Laravel ke /tmp
+require __DIR__ . '/../vendor/autoload.php';
 
-    $app = require_once __DIR__ . '/../bootstrap/app.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
 
-    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+// Paksa path instance Laravel ke /tmp
+$app->useStoragePath($tmpStorage);
 
-    $response = $kernel->handle(
-        $request = Illuminate\Http\Request::capture()
-    )->send();
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-    $kernel->terminate($request, $response);
-} catch (\Throwable $e) {
-    http_response_code(500);
-    echo "<h1>Laravel Error on Vercel</h1>";
-    echo "<p>" . $e->getMessage() . "</p>";
-    echo "<pre>" . $e->getTraceAsString() . "</pre>";
-}
+$response = $kernel->handle(
+    $request = Illuminate\Http\Request::capture()
+)->send();
+
+$kernel->terminate($request, $response);
