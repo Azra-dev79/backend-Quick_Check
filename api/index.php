@@ -1,16 +1,37 @@
 <?php
 
-// Mengarah direktori cache dan storage ke /tmp
+// Pastikan direktori storage dan cache aman di /tmp Vercel
 $_ENV['APP_STORAGE'] = '/tmp';
+$_ENV['VIEW_COMPILED_PATH'] = '/tmp/framework/views';
 
-require __DIR__ . '/../vendor/autoload.php';
+$paths = [
+    '/tmp/storage/framework/cache',
+    '/tmp/storage/framework/sessions',
+    '/tmp/storage/framework/views',
+    '/tmp/storage/logs',
+];
 
-$app = require_once __DIR__ . '/../bootstrap/app.php';
+foreach ($paths as $path) {
+    if (!is_dir($path)) {
+        mkdir($path, 0777, true);
+    }
+}
 
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+try {
+    require __DIR__ . '/../vendor/autoload.php';
 
-$response = $kernel->handle(
-    $request = Illuminate\Http\Request::capture()
-)->send();
+    $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-$kernel->terminate($request, $response);
+    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+
+    $response = $kernel->handle(
+        $request = Illuminate\Http\Request::capture()
+    )->send();
+
+    $kernel->terminate($request, $response);
+} catch (\Throwable $e) {
+    http_response_code(500);
+    echo "<h1>Laravel Error on Vercel</h1>";
+    echo "<p>" . $e->getMessage() . "</p>";
+    echo "<pre>" . $e->getTraceAsString() . "</pre>";
+}
